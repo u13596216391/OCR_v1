@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  db:
+    # ... (db service remains unchanged) ...
+    image: postgres:16
+    container_name: ocr_postgres_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=ocr_pipeline_db
+      - POSTGRES_USER=test
+      - POSTGRES_PASSWORD=test1234
+    ports:
+      - "5432:5432"
+
+  redis:
+    # ... (redis service remains unchanged) ...
+    image: redis:7-alpine
+    container_name: ocr_redis
+    ports:
+      - "6379:6379"
+
+  # ====================================================================
+  # VVVV 请确保您的 backend 服务配置与此完全一致 VVVV
+  # ====================================================================
+  backend:
+    build: ./backend
+    container_name: ocr_backend
+    command: >
+      sh -c "python manage.py migrate && 
+             gunicorn backend.wsgi:application --bind 0.0.0.0:8000"
+    volumes:
+      - ./backend:/app
+      - ./data:/data         # <-- 重点检查这里：必须是 ./data:/data
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      - LOCAL_DATA_PATH=/    # <-- 重点检查这里：必须是 /
+      - POSTGRES_NAME=ocr_pipeline_db
+      - POSTGRES_USER=test
+      - POSTGRES_PASSWORD=test1234
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - REDIS_HOST=redis
+  # ====================================================================
+
+  # ====================================================================
+  # VVVV 请确保您的 celery 服务配置与此完全一致 VVVV
+  # ====================================================================
+  celery:
+    build: ./backend
+    container_name: ocr_celery_worker
+    command: celery -A backend worker -l info
+    volumes:
+      - ./backend:/app
+      - ./data:/data         # <-- 重点检查这里：必须是 ./data:/data
+    depends_on:
+      - backend
+    environment:
+      - LOCAL_DATA_PATH=/    # <-- 重点检查这里：必须是 /
+      - POSTGRES_NAME=ocr_pipeline_db
+      - POSTGRES_USER=test
+      - POSTGRES_PASSWORD=test1234
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - REDIS_HOST=redis
+  # ====================================================================
+
+  frontend:
+    # ... (frontend and other services remain unchanged) ...
+    image: node:18-alpine
+    container_name: ocr_frontend
+    command: >
+      sh -c "npm install -g serve && 
+             serve -s ."
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "8080:3000"
+    depends_on:
+      - backend
+      
+  label-studio:
+    image: heartexlabs/label-studio:latest
+    container_name: ocr_label_studio
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./data:/label-studio/data
+
+volumes:
+  postgres_data:
