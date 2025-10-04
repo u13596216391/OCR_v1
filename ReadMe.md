@@ -19,3 +19,20 @@
 
 * `LOCAL_DATA_PATH=/`: 定义了应用内部数据存储的根路径。
 * `POSTGRES_*` and `REDIS_HOST`: 用于连接数据库和 Redis 服务。
+
+如何使用：
+1、访问服务
+
+ 前端应用**: `http://localhost:8080`
+ 后端 API**: `http://localhost:8000/api/`
+ label Studio**: `http://localhost:8081`
+
+2、工作流
+
+1.  上传 PDF: 访问前端界面 (`http://localhost:8080`)，上传一个或多个 PDF 文档。
+2.  后台处理: 上传后，系统会自动触发一个 Celery 异步任务。您可以在列表中看到文档状态变为 `processing`。
+3.  处理完成: 任务成功后，状态变为 `processed`。
+4.  下载原始 OCR JSON: 在前端点击对应文档的“下载原始 JSON”按钮。
+5.  导入 Label Studio: 访问 Label Studio (`http://localhost:8081`)，创建一个新项目，并导入上一步下载的 JSON 文件进行人工校对和修正。        
+6.  上传校对后 JSON: 校对完成后，从 Label Studio 导出数据。在前端界面点击“上传校对后 JSON”按钮，提交修正后的文件。文档状态变为 `corrected`。
+7.  生成 RAGFlow Payload: 点击“生成 RAG 文件”按钮，系统将下载一个为 RAGFlow 定制的 JSON 文件，文档状态变为 `ingested`。
