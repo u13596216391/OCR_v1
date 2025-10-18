@@ -40,7 +40,7 @@ RUN dos2unix /app/wait-for-it.sh && chmod +x /app/wait-for-it.sh && \
 COPY . .
 
 # 暴露端口
-EXPOSE 8000
+EXPOSE 8010
 
 # 设置入口点
 ENTRYPOINT ["/app/entrypoint.sh"]
