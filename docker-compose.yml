@@ -29,12 +29,12 @@ services:
     container_name: ocr_backend
     command: >
       sh -c "python manage.py migrate && 
-             gunicorn backend.wsgi:application --bind 0.0.0.0:8000"
+             gunicorn backend.wsgi:application --bind 0.0.0.0:8010"
     volumes:
       - ./backend:/app
       - ./data:/data         # <-- 重点检查这里：必须是 ./data:/data
     ports:
-      - "8000:8000"
+      - "8010:8010"
     depends_on:
       - db
       - redis
