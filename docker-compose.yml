@@ -76,7 +76,7 @@ services:
     container_name: ocr_frontend
     command: >
       sh -c "npm install -g serve && 
-             serve -s ."
+             serve -s -l 8082."
     working_dir: /app
     volumes:
       - ./frontend:/app
