@@ -81,7 +81,7 @@ services:
     volumes:
       - ./frontend:/app
     ports:
-      - "8080:3000"
+      - "8082:8082"
     depends_on:
       - backend
       
@@ -89,7 +89,7 @@ services:
     image: heartexlabs/label-studio:latest
     container_name: ocr_label_studio
     ports:
-      - "8081:8080"
+      - "8081:8081"
     volumes:
       - ./data:/label-studio/data
 
