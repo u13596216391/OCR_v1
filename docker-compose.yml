@@ -68,6 +68,7 @@ services:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - REDIS_HOST=redis
+      - MINERU_MODEL_SOURCE=modelscope
   # ====================================================================
 
   frontend:
