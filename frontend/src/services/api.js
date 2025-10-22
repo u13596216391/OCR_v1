@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-    baseURL: 'http://10.4.34.108:8010/api',
+    baseURL: '/api',  // 使用相对路径，通过反向代理访问后端
     headers: {
         'Content-Type': 'application/json'
     }

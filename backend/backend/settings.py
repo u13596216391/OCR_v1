@@ -12,7 +12,8 @@ load_dotenv(dotenv_path=env_path)
 # ... (SECRET_KEY, DEBUG, ALLOWED_HOSTS, etc. remain the same) ...
 SECRET_KEY = 'django-insecure-^j%3#x#c+q#@&z#a$a@d@a&o)v$!y!#p!j$o!c@t#y'
 DEBUG = True
-ALLOWED_HOSTS = ['10.4.34.108', 'localhost', '127.0.0.1','100.126.221.50']
+# 允许所有主机访问（生产环境请设置具体域名）
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
