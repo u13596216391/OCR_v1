@@ -128,7 +128,7 @@
             }
         },
         methods: {
-            apiClient() { return axios.create({ baseURL: 'http://10.4.34.108:8010/api' }); },
+            apiClient() { return axios.create({ baseURL: '/api' }); },
             async fetchDocuments() {
                 try {
                     const response = await this.apiClient().get('/documents/');
