@@ -28,8 +28,16 @@ services:
     build: ./backend
     container_name: ocr_backend
     command: >
-      sh -c "python manage.py migrate && 
-             gunicorn backend.wsgi:application --bind 0.0.0.0:8010"
+      sh -c "
+      echo 'Waiting for database...' &&
+      while ! nc -z db 5432; do sleep 1; done &&
+      echo 'Database is ready!' &&
+      echo 'Waiting for Redis...' &&
+      while ! nc -z redis 6379; do sleep 1; done &&
+      echo 'Redis is ready!' &&
+      python manage.py migrate &&
+      gunicorn backend.wsgi:application --bind 0.0.0.0:8010 --timeout 300
+      "
     volumes:
       - ./backend:/app
       - ./data:/data         # <-- 重点检查这里：必须是 ./data:/data
@@ -46,6 +54,7 @@ services:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - REDIS_HOST=redis
+    restart: unless-stopped
   # ====================================================================
 
   # ====================================================================
@@ -54,12 +63,23 @@ services:
   celery:
     build: ./backend
     container_name: ocr_celery_worker
-    command: celery -A backend worker -l info
+    command: >
+      sh -c "
+      echo 'Waiting for database...' &&
+      while ! nc -z db 5432; do sleep 1; done &&
+      echo 'Database is ready!' &&
+      echo 'Waiting for Redis...' &&
+      while ! nc -z redis 6379; do sleep 1; done &&
+      echo 'Redis is ready!' &&
+      celery -A backend worker -l info
+      "
     volumes:
       - ./backend:/app
       - ./data:/data         # <-- 重点检查这里：必须是 ./data:/data
     depends_on:
       - backend
+      - db
+      - redis
     environment:
       - LOCAL_DATA_PATH=/    # <-- 重点检查这里：必须是 /
       - POSTGRES_NAME=ocr_pipeline_db
@@ -69,6 +89,7 @@ services:
       - POSTGRES_PORT=5432
       - REDIS_HOST=redis
       - MINERU_MODEL_SOURCE=modelscope
+    restart: unless-stopped
   # ====================================================================
 
   frontend:
@@ -88,7 +109,11 @@ services:
     ports:
       - "8081:8081"
     volumes:
-      - ./data:/label-studio/data
+      - label_studio_data:/label-studio/data
+    environment:
+      - LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
+      - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/label-studio/data
+    restart: unless-stopped
 
   # Nginx 反向代理服务 - 统一入口
   nginx:
@@ -102,6 +127,13 @@ services:
       - frontend
       - backend
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
 volumes:
   postgres_data:
+  label_studio_data:

@@ -2,6 +2,68 @@
 
 该系统通过 Docker Compose 进行容器化编排，集成了后端 API、异步任务处理、前端界面以及第三方标注工具 Label Studio。
 
+## 🚀 快速部署
+
+只需一条命令即可启动所有服务：
+
+```bash
+docker-compose up -d --build
+```
+
+**首次部署或更新代码后**:
+```bash
+# 1. 停止旧服务
+docker-compose down
+
+# 2. 构建并启动所有服务
+docker-compose up -d --build
+
+# 3. 查看服务状态
+docker-compose ps
+
+# 4. 查看日志（可选）
+docker-compose logs -f
+```
+
+**日常启动/停止**:
+```bash
+# 启动服务
+docker-compose up -d
+
+# 停止服务
+docker-compose down
+
+# 重启服务
+docker-compose restart
+```
+
+### 访问地址
+
+- **主应用（统一入口）**: `http://服务器IP/` 或 `http://服务器IP:80`
+- **后端API**: `http://服务器IP/api/`
+- **Django管理后台**: `http://服务器IP/admin/`
+- **Label Studio**: `http://服务器IP:8081`
+
+> 💡 **重要**: 现在使用Nginx反向代理，只需访问80端口即可，前端会自动通过相对路径调用后端API，无需在代码中配置IP地址！
+
+## ⚠️ 故障排查
+
+如果遇到问题，请查看：
+- 📖 [故障排查指南](./TROUBLESHOOTING.md)
+- 📖 [部署完整指南](./DEPLOYMENT_GUIDE.md)
+
+常见问题快速检查：
+```bash
+# 检查所有服务状态
+docker-compose ps
+
+# 查看backend日志
+docker-compose logs backend
+
+# 查看nginx日志
+docker-compose logs nginx
+```
+
 ## 核心特性
 
 * **PDF 上传**: 通过 Web 界面上传 PDF 文档进行处理。
@@ -20,19 +82,37 @@
 * `LOCAL_DATA_PATH=/`: 定义了应用内部数据存储的根路径。
 * `POSTGRES_*` and `REDIS_HOST`: 用于连接数据库和 Redis 服务。
 
-如何使用：
-1、访问服务
+## 使用流程
 
- 前端应用**: `http://localhost:8080`
- 后端 API**: `http://localhost:8000/api/`
- label Studio**: `http://localhost:8081`
+### 1. 访问服务
 
-2、工作流
+- **前端应用**: `http://服务器IP/`
+- **后端 API**: `http://服务器IP/api/`
+- **Label Studio**: `http://服务器IP:8081`
 
-1.  上传 PDF: 访问前端界面 (`http://localhost:8080`)，上传一个或多个 PDF 文档。
-2.  后台处理: 上传后，系统会自动触发一个 Celery 异步任务。您可以在列表中看到文档状态变为 `processing`。
-3.  处理完成: 任务成功后，状态变为 `processed`。
-4.  下载原始 OCR JSON: 在前端点击对应文档的“下载原始 JSON”按钮。
-5.  导入 Label Studio: 访问 Label Studio (`http://localhost:8081`)，创建一个新项目，并导入上一步下载的 JSON 文件进行人工校对和修正。        
-6.  上传校对后 JSON: 校对完成后，从 Label Studio 导出数据。在前端界面点击“上传校对后 JSON”按钮，提交修正后的文件。文档状态变为 `corrected`。
-7.  生成 RAGFlow Payload: 点击“生成 RAG 文件”按钮，系统将下载一个为 RAGFlow 定制的 JSON 文件，文档状态变为 `ingested`。
+### 2. 工作流
+
+1.  **上传 PDF**: 访问前端界面，上传一个或多个 PDF 文档。
+2.  **后台处理**: 上传后，系统会自动触发一个 Celery 异步任务。您可以在列表中看到文档状态变为 `processing`。
+3.  **处理完成**: 任务成功后，状态变为 `processed`。
+4.  **下载原始 OCR JSON**: 在前端点击对应文档的"下载原始 JSON"按钮。
+5.  **导入 Label Studio**: 访问 Label Studio，创建一个新项目，并导入上一步下载的 JSON 文件进行人工校对和修正。        
+6.  **上传校对后 JSON**: 校对完成后，从 Label Studio 导出数据。在前端界面点击"上传校对后 JSON"按钮，提交修正后的文件。文档状态变为 `corrected`。
+7.  **生成 RAGFlow Payload**: 点击"生成 RAG 文件"按钮，系统将下载一个为 RAGFlow 定制的 JSON 文件，文档状态变为 `ingested`。
+
+## 📚 文档
+
+- [部署完整指南](./DEPLOYMENT_GUIDE.md)
+- [故障排查手册](./TROUBLESHOOTING.md)
+- [变更记录](./CHANGELOG_502_FIX.md)
+
+## 🔧 技术栈
+
+- **前端**: Vue.js 3
+- **后端**: Django + Django REST Framework
+- **异步任务**: Celery
+- **数据库**: PostgreSQL 16
+- **缓存/消息队列**: Redis
+- **反向代理**: Nginx
+- **容器化**: Docker + Docker Compose
+- **OCR引擎**: MinerU
