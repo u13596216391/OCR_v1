@@ -1,5 +1,18 @@
-# 使用官方的 Python 3.11 slim 版本作为基础镜像
-FROM python:3.11
+# 使用 NVIDIA CUDA 基础镜像以支持 GPU 加速
+# 这个镜像包含 CUDA 12.1，兼容 CUDA 13.0 的驱动
+FROM nvcr.io/nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
+
+# 安装 Python 3.11
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-dev \
+    python3-pip \
+    python3.11-venv \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # [核心修复] 设置环境变量，告知系统这是一个非交互式环境
 # 这可以防止 apt-get 在安装过程中挂起或失败
@@ -25,8 +38,27 @@ RUN apt-get update && \
 # 复制依赖文件
 COPY requirements.txt .
 
-# 安装 Python 依赖
-RUN pip install --default-timeout=1000 -i https://pypi.tuna.tsinghua.edu.cn/simple --no-cache-dir -r requirements.txt
+# 升级 pip 并安装 Python 依赖（使用 CUDA 12.x 兼容的 PyTorch）
+RUN python -m pip install --upgrade pip setuptools wheel && \
+    pip install --default-timeout=1000 --no-cache-dir \
+    torch>=2.4.0 torchvision>=0.19.0 --index-url https://download.pytorch.org/whl/cu121 && \
+    pip install --default-timeout=1000 --no-cache-dir -r requirements.txt || \
+    pip install --default-timeout=1000 -i https://pypi.tuna.tsinghua.edu.cn/simple --no-cache-dir -r requirements.txt
+
+# ============ 模型预下载优化 ============
+# 复制模型下载脚本（单独复制，利用 Docker 缓存）
+COPY download_models.py .
+
+# 设置模型缓存目录环境变量
+ENV HF_HOME=/app/.cache/huggingface
+ENV TORCH_HOME=/app/.cache/torch
+ENV MINERU_MODEL_SOURCE=modelscope
+
+# 预下载 MinerU 模型文件（这一层会被缓存）
+# 如果 requirements.txt 或之前的层没有变化，Docker 会复用这一层的缓存
+RUN python download_models.py || echo "模型预下载完成（可能有警告，继续构建）"
+
+# =========================================
 
 # 复制启动脚本
 COPY wait-for-it.sh .
@@ -43,5 +75,7 @@ COPY . .
 EXPOSE 8010
 
 # 设置入口点
-ENTRYPOINT ["/app/entrypoint.sh"]
+# 使用 shell 解释器直接运行 entrypoint 脚本，避免因为宿主机挂载覆盖导致的
+# 可执行权限或 CRLF 换行符问题（Windows 主机常见）。
+ENTRYPOINT ["sh", "/app/entrypoint.sh"]
 

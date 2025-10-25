@@ -180,6 +180,131 @@ class LabelStudioTaskView(APIView):
             return Response({"error": f"发生意外的服务器错误: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+class AutoImportToLabelStudioView(APIView):
+    """
+    自动将OCR识别结果导入Label Studio
+    支持单个文档或批量导入多个文档
+    """
+    def post(self, request, *args, **kwargs):
+        logger.info("--- [POST] 开始自动导入到Label Studio ---")
+        
+        # 获取Label Studio配置
+        label_studio_url = settings.LABEL_STUDIO_URL
+        api_token = settings.LABEL_STUDIO_API_TOKEN
+        project_id = request.data.get('project_id') or settings.LABEL_STUDIO_PROJECT_ID
+        
+        if not api_token:
+            return Response(
+                {"error": "Label Studio API Token未配置。请在环境变量中设置LABEL_STUDIO_API_TOKEN"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not project_id:
+            return Response(
+                {"error": "未指定Label Studio项目ID。请在请求中提供project_id或在环境变量中设置LABEL_STUDIO_PROJECT_ID"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 获取要导入的文档ID列表
+        doc_ids = request.data.get('doc_ids', [])
+        if not doc_ids:
+            return Response(
+                {"error": "未提供文档ID列表。请在请求体中提供doc_ids数组"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 批量处理文档
+        results = []
+        success_count = 0
+        failed_count = 0
+        
+        for doc_id in doc_ids:
+            try:
+                doc = OcrDocument.objects.get(pk=doc_id)
+                
+                # 检查是否已经处理完成
+                if doc.status != 'processed':
+                    results.append({
+                        "doc_id": doc_id,
+                        "filename": Path(doc.original_pdf_path).name,
+                        "status": "skipped",
+                        "message": f"文档状态为 '{doc.status}'，不是 'processed'。跳过导入。"
+                    })
+                    continue
+                
+                # 检查是否有原始OCR数据
+                if not doc.raw_ocr_json:
+                    results.append({
+                        "doc_id": doc_id,
+                        "filename": Path(doc.original_pdf_path).name,
+                        "status": "error",
+                        "message": "未找到原始OCR JSON数据"
+                    })
+                    failed_count += 1
+                    continue
+                
+                # 生成Label Studio任务
+                mineru_json_path = Path(doc.mineru_json_path)
+                unique_folder_name = mineru_json_path.parents[1].name
+                ls_tasks = _generate_ls_tasks(doc.raw_ocr_json, doc, unique_folder_name)
+                
+                # 调用Label Studio API导入任务
+                import_url = f"{label_studio_url}/api/projects/{project_id}/import"
+                headers = {
+                    "Authorization": f"Token {api_token}",
+                    "Content-Type": "application/json"
+                }
+                
+                response = requests.post(import_url, json=ls_tasks, headers=headers, timeout=30)
+                
+                if response.status_code in [200, 201]:
+                    # 更新文档状态
+                    doc.label_studio_project_id = project_id
+                    doc.save(update_fields=['label_studio_project_id'])
+                    
+                    results.append({
+                        "doc_id": doc_id,
+                        "filename": Path(doc.original_pdf_path).name,
+                        "status": "success",
+                        "message": f"成功导入 {len(ls_tasks)} 个任务到Label Studio",
+                        "task_count": len(ls_tasks)
+                    })
+                    success_count += 1
+                else:
+                    results.append({
+                        "doc_id": doc_id,
+                        "filename": Path(doc.original_pdf_path).name,
+                        "status": "error",
+                        "message": f"Label Studio API返回错误: {response.status_code} - {response.text}"
+                    })
+                    failed_count += 1
+                    
+            except OcrDocument.DoesNotExist:
+                results.append({
+                    "doc_id": doc_id,
+                    "status": "error",
+                    "message": "文档不存在"
+                })
+                failed_count += 1
+            except Exception as e:
+                logger.error(f"导入文档 {doc_id} 到Label Studio时出错: {e}", exc_info=True)
+                results.append({
+                    "doc_id": doc_id,
+                    "status": "error",
+                    "message": str(e)
+                })
+                failed_count += 1
+        
+        return Response({
+            "summary": {
+                "total": len(doc_ids),
+                "success": success_count,
+                "failed": failed_count
+            },
+            "results": results
+        }, status=status.HTTP_200_OK)
+
+
 # --- REPLACED RAGFLOW VIEW WITH THIS ---
 class SubmitCorrectionView(APIView):
     """

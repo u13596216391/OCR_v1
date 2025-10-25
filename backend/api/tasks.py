@@ -16,10 +16,36 @@ DATA_ROOT = settings.DATA_ROOT_PATH
 BASE_OUTPUT_DIR = DATA_ROOT / 'data' / 'mineru_output'
 POPPLER_PATH = os.getenv('POPPLER_PATH', None)
 MINERU_COMMAND = 'mineru'
+
+# GPU检测和配置
+def check_gpu_available():
+    """检测GPU是否可用"""
+    try:
+        import torch
+        gpu_available = torch.cuda.is_available()
+        if gpu_available:
+            gpu_count = torch.cuda.device_count()
+            gpu_name = torch.cuda.get_device_name(0)
+            logger.info(f"✓ GPU可用: {gpu_count} 个设备, 主设备: {gpu_name}")
+            return True
+        else:
+            logger.info("✗ GPU不可用，将使用CPU模式")
+            return False
+    except Exception as e:
+        logger.warning(f"GPU检测失败: {e}，将使用CPU模式")
+        return False
+
 @shared_task
 def process_pdf_with_mineru(doc_id):
     doc = None
     try:
+        # 检测GPU可用性
+        gpu_available = check_gpu_available()
+        if gpu_available:
+            logger.info(f"文档 {doc_id} 将使用GPU加速处理")
+        else:
+            logger.info(f"文档 {doc_id} 将使用CPU处理")
+        
         doc = OcrDocument.objects.get(id=doc_id)
         doc.status = 'processing'
         doc.save(update_fields=['status'])

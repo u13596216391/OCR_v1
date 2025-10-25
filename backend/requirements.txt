@@ -17,8 +17,8 @@ mineru
 
 python-dotenv
 Pygments
-torch==2.3.0
-torchvision
+torch>=2.4.0
+torchvision>=0.19.0
 doclayout-yolo
 ultralytics
 transformers
@@ -26,3 +26,4 @@ ftfy
 shapely
 pyclipper
 omegaconf
+requests

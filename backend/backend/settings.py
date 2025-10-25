@@ -90,6 +90,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+# Label Studio 配置
+LABEL_STUDIO_URL = os.getenv('LABEL_STUDIO_URL', 'http://label-studio:8081')
+LABEL_STUDIO_API_TOKEN = os.getenv('LABEL_STUDIO_API_TOKEN', '')  # 需要在环境变量中配置
+LABEL_STUDIO_PROJECT_ID = os.getenv('LABEL_STUDIO_PROJECT_ID', '')  # 默认项目ID
+
 # --- 核心改动：从环境变量读取Redis主机 ---
 REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
 CELERY_BROKER_URL = f'redis://{REDIS_HOST}:6379/0'
